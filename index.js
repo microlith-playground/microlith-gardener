@@ -65,10 +65,11 @@ module.exports = app => {
         tree: [
           {
             path: "hello.md",
+            mode: "100644",
             content: Buffer.from('My new file is awesome!').toString('base64'),
           }
         ],
-        base_tree: reference.data.object.shareference.data.object.sha
+        base_tree: reference.data.object.sha
       })
       // create commit
       // update ref (force)
