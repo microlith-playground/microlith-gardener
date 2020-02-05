@@ -1,52 +1,90 @@
-// Git Data API use case example
-// See: https://developer.github.com/v3/git/ to learn more
-
 /**
  * This is the main entrypoint to your Probot app
  * @param {import('probot').Application} app
  */
 module.exports = app => {
-  // Opens a PR every time someone installs your app for the first time
-  app.on('installation.created', check)
-  async function check (context) {
-    // shows all repos you've installed the app on
-    console.log(context.payload.repositories)
 
-    const owner = context.payload.installation.account.login
-    context.payload.repositories.forEach(async (repository) => {
-      const repo = repository.name
+  const CONFIG_REPOSITORY = '.github'
 
-      // Generates a random number to ensure the git reference isn't already taken
-      // NOTE: this is not recommended and just shows an example so it can work :)
+  app.on('push', sync)
 
+  async function sync (context) {
+    console.log(context.payload)
+   
+    if (context.payload.repository.name !== CONFIG_REPOSITORY){
+      console.log(`Ignoring repository ${context.payload.repository.name}`)
+      return;
+    }
+
+    // TODO get from some config
+    const repos = ['chipmunk-web']
+
+    repos.forEach( async (repo) => {
+      const owner = context.payload.repository.owner.name
+      console.log("Processing " + owner + "/" + repo) 
+  
       // test
-      const branch = `new-branch-${Math.floor(Math.random() * 9999)}`
-
+      const branch = `sync-microlith-config`
+  
+      console.log("Getting ref") 
+  
       // Get current reference in Git
-      const reference = await context.github.gitdata.getReference({
+      const reference = await context.github.git.getRef({
         repo, // the repo
         owner, // the owner of the repo
         ref: 'heads/master'
       })
-      // Create a branch
-      await context.github.gitdata.createReference({
+  
+  
+      console.log("Checking if branch exists") 
+      // Get current reference in Git
+      try {
+        await context.github.git.getRef({
+          repo, // the repo
+          owner, // the owner of the repo
+          ref: `refs/heads/${branch}`
+        })
+      } catch (error){
+        console.log(error)
+        console.log("Creating branch") 
+        // Create a branch
+        await context.github.git.createRef({
+          repo,
+          owner,
+          ref: `refs/heads/${branch}`,
+          sha: reference.data.object.sha // accesses the sha from the heads/master reference we got
+        })
+      }
+  
+      // create tree
+      const tree = await context.github.git.createTree({
         repo,
         owner,
-        ref: `refs/heads/${branch}`,
-        sha: reference.data.object.sha // accesses the sha from the heads/master reference we got
+        tree: [
+          {
+            path: "hello.md",
+            content: Buffer.from('My new file is awesome!').toString('base64'),
+          }
+        ],
+        base_tree: reference.data.object.shareference.data.object.sha
       })
-      // create a new file
-      await context.github.repos.createFile({
+      // create commit
+      // update ref (force)
+      console.log(tree)
+
+      await context.github.git.createCommit({
         repo,
         owner,
-        path: 'path/to/your/file.md', // the path to your config file
+        tree: tree.data.sha,
         message: 'adds config file', // a commit message
-        content: Buffer.from('My new file is awesome!').toString('base64'),
-        // the content of your file, must be base64 encoded
+        force: true,
         branch // the branch name we used when creating a Git reference
       })
+
+      console.log("Creating file") 
+  
       // create a PR from that branch with the commit of our added file
-      await context.github.pullRequests.create({
+      await context.github.pulls.create({
         repo,
         owner,
         title: 'Adding my file!', // the title of the PR
@@ -55,11 +93,10 @@ module.exports = app => {
         body: 'Adds my new file!', // the body of your PR,
         maintainer_can_modify: true // allows maintainers to edit your app's PR
       })
+        
     })
+        
   }
-  // For more information on building apps:
-  // https://probot.github.io/docs/
 
-  // To get your app running against GitHub, see:
-  // https://probot.github.io/docs/development/
+
 }
