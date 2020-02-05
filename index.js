@@ -34,6 +34,7 @@ module.exports = app => {
         owner, // the owner of the repo
         ref: 'heads/master'
       })
+      console.log(reference)
   
   
       console.log("Checking if branch exists") 
@@ -42,7 +43,7 @@ module.exports = app => {
         await context.github.git.getRef({
           repo, // the repo
           owner, // the owner of the repo
-          ref: `refs/heads/${branch}`
+          ref: `heads/${branch}`
         })
       } catch (error){
         console.log(error)
@@ -57,6 +58,7 @@ module.exports = app => {
       }
   
       // create tree
+      console.log("Creating tree") 
       const tree = await context.github.git.createTree({
         repo,
         owner,
